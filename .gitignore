@@ -1,0 +1,6 @@
+**/*.log
+**/*.exe
+.idea
+.vscode
+*.md
+*.yml
