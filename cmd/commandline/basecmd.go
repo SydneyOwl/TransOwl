@@ -1,12 +1,12 @@
 package commandline
 
 import (
-	"TransOwl/config"
-	"TransOwl/internal/netutil"
-	"TransOwl/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/gookit/slog"
 	"github.com/spf13/cobra"
+	"github.com/sydneyowl/TransOwl/config"
+	"github.com/sydneyowl/TransOwl/internal/netutil"
+	"github.com/sydneyowl/TransOwl/pkg/logger"
 )
 
 var (
@@ -68,5 +68,6 @@ func init() {
 	BaseCmd.PersistentFlags().StringArrayVarP(&interfaceSpecified, "interface", "i", make([]string, 0), "Specify interface you want to search devices in")
 	BaseCmd.PersistentFlags().StringVarP(&userName, "user", "u", "", "Specify a username")
 	BaseCmd.PersistentFlags().StringVar(&logToFile, "logtofile", "", "Specify a location logs storage in, default is ./TransOwl_*.log")
+	BaseCmd.PersistentFlags().BoolVarP(&scanDeeper, "deepscan", "d", false, "Scan in 255.255.255.255; If not specified, devices with the same network segment as the NIC are scanned.")
 	BaseCmd.DisableAutoGenTag = true
 }

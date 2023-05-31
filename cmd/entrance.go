@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"TransOwl/cmd/commandline"
+	"github.com/sydneyowl/TransOwl/cmd/commandline"
 	"os"
 )
 

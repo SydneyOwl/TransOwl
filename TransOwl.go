@@ -1,9 +1,10 @@
 package main
 
 import (
-	"TransOwl/cmd"
+	"github.com/sydneyowl/TransOwl/cmd"
 )
 
 func main() {
 	cmd.Execute()
+
 }

@@ -1,4 +1,4 @@
-module TransOwl
+module github.com/sydneyowl/TransOwl
 
 go 1.20
 

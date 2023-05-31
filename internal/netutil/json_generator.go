@@ -1,11 +1,11 @@
 package netutil
 
 import (
-	"TransOwl/internal/cfg"
-	"TransOwl/internal/terminal"
-	"TransOwl/internal/terminal/related_resp"
 	"encoding/json"
 	"github.com/gookit/slog"
+	"github.com/sydneyowl/TransOwl/internal/cfg"
+	"github.com/sydneyowl/TransOwl/internal/terminal"
+	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
 	"os"
 	"runtime"
 	"time"
@@ -55,23 +55,35 @@ func GenerateReplyDeviceQueryJSON(tarTerminal terminal.Terminal) string {
 	}
 	return string(data)
 }
-func GenerateReadyToSendFileJSON(tarTerminal terminal.Terminal, file os.FileInfo) string {
+func GenerateReadyToSendFileJSON(myTerminal terminal.Terminal, file os.FileInfo) string {
 	request := related_resp.FileTransfer{
 		FixedHeader: related_resp.FixedHeader{
 			Type: cfg.READY_TO_SEND_FILE,
 			Flag: cfg.TRANSOWL_FLAG,
 			Time: time.Now().Unix(),
 		},
-		Terminal: tarTerminal,
+		Terminal: myTerminal,
 		File: terminal.File{
 			FileName: file.Name(),
 			FileSize: uint64(file.Size()),
 		},
 	}
-	data, err := json.Marshal(request)
-	if err != nil {
-		// This is not likely to happen
-		slog.Warnf("Cannot generate req json:%v", err)
+	data, _ := json.Marshal(request)
+	return string(data)
+}
+func GenerateReadyToReceiveFileJSON(myTerminal terminal.Terminal, accept bool) string {
+	var typ uint = cfg.READY_TO_RECV_FILE
+	if !accept {
+		typ = cfg.REFUSED_TO_RECV_FILE
 	}
+	response := related_resp.FileTransfer{
+		FixedHeader: related_resp.FixedHeader{
+			Type: typ,
+			Flag: cfg.TRANSOWL_FLAG,
+			Time: time.Now().Unix(),
+		},
+		Terminal: myTerminal,
+	}
+	data, _ := json.Marshal(response)
 	return string(data)
 }

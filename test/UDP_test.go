@@ -1,9 +1,9 @@
 package test
 
 import (
-	"TransOwl/internal/cfg"
-	"TransOwl/internal/netutil"
-	"TransOwl/pkg/logger"
+	"github.com/sydneyowl/TransOwl/internal/cfg"
+	"github.com/sydneyowl/TransOwl/internal/netutil"
+	"github.com/sydneyowl/TransOwl/pkg/logger"
 	"sync"
 	"testing"
 )

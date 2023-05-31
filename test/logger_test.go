@@ -1,8 +1,8 @@
 package test
 
 import (
-	_ "TransOwl/pkg/logger"
 	"github.com/gookit/slog"
+	_ "github.com/sydneyowl/TransOwl/pkg/logger"
 	"testing"
 )
 

@@ -1,12 +1,13 @@
 package commandline
 
 import (
-	"TransOwl/internal/cfg"
-	"TransOwl/internal/netutil"
-	"TransOwl/internal/terminal"
 	"fmt"
 	"github.com/gookit/slog"
 	"github.com/spf13/cobra"
+	"github.com/sydneyowl/TransOwl/internal/cfg"
+	"github.com/sydneyowl/TransOwl/internal/netutil"
+	"github.com/sydneyowl/TransOwl/internal/terminal"
+	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
 	"net"
 )
 
@@ -27,12 +28,12 @@ var scanDevicesCmd = &cobra.Command{
 				IP:       v.CurrentIP.String(),
 				UserName: userName,
 			})
-			go ScanDevice(tTerminal, v, true, scanDeeper, endChan)
+			go ScanDevice(tTerminal, v, scanDeeper, true, endChan)
 		l:
 			for {
 				ans := <-endChan
 				switch result := ans.(type) {
-				case terminal.Terminal:
+				case related_resp.DeviceDiscovery:
 					fmt.Printf("Device found: User: %s, IP: %s, OS: %s, Arch: %s\n", result.User.UserName, result.User.IP, result.Device.OS, result.Device.Arch)
 				case net.Error:
 					if result.Timeout() {
@@ -40,8 +41,10 @@ var scanDevicesCmd = &cobra.Command{
 						break l
 					}
 					slog.Errorf("Err occurred: %v", result)
+					return
 				case error:
 					slog.Errorf("Scan suspended due to %v", result)
+					return
 				default:
 					slog.Tracef("Not handled: %v", result)
 				}
@@ -70,6 +73,5 @@ func ScanDevice(t terminal.Terminal, v netutil.NetInterface, scanDeeper bool, to
 }
 
 func init() {
-	scanDevicesCmd.Flags().BoolVarP(&scanDeeper, "deepscan", "d", false, "Scan in 255.255.255.255; If not specified, devices with the same network segment as the NIC are scanned.")
 	BaseCmd.AddCommand(scanDevicesCmd)
 }

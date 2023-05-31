@@ -1,10 +1,10 @@
 package commandline
 
 import (
-	"TransOwl/internal/netutil"
 	"fmt"
 	"github.com/gookit/slog"
 	"github.com/spf13/cobra"
+	"github.com/sydneyowl/TransOwl/internal/netutil"
 )
 
 var lsNetCmd = &cobra.Command{

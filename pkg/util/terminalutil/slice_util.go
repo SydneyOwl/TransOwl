@@ -1,6 +1,6 @@
 package terminalutil
 
-import "TransOwl/internal/terminal"
+import "github.com/sydneyowl/TransOwl/internal/terminal"
 
 func RemoveStringDuplicateUseMap(list []terminal.Terminal) []terminal.Terminal {
 	var data []terminal.Terminal
