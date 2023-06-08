@@ -57,7 +57,8 @@ var BaseCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			slog.Infof("No args found. Start with gui by default.")
+			slog.Infof("No args found!")
+			_ = cmd.Help()
 		}
 	},
 }

@@ -2,21 +2,22 @@ package netutil
 
 import (
 	"fmt"
-	"github.com/sydneyowl/TransOwl/internal/cfg"
-	"github.com/sydneyowl/TransOwl/internal/terminal"
-	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/sydneyowl/TransOwl/internal/cfg"
+	"github.com/sydneyowl/TransOwl/internal/terminal"
+	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
 
 	"github.com/gookit/slog"
 )
 
 // Handlers should not return any value.
-type ActionHandler func(respType uint, target interface{}, currentTerminal terminal.Terminal, informChan chan interface{}, wg *sync.WaitGroup)
+type ActionHandler func(respType uint, target interface{}, currentTerminal terminal.Terminal, informChan chan<- interface{}, wg *sync.WaitGroup)
 
 // if we received device discovery request we call this handler.
-func (udpModule *UDPModule) ReplyDiscoverDevicesHandler(bit uint, target interface{}, currentTerminal terminal.Terminal, _ chan interface{}, wg *sync.WaitGroup) {
+func (udpModule *UDPModule) ReplyDiscoverDevicesHandler(bit uint, target interface{}, currentTerminal terminal.Terminal, _ chan<- interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if bit != cfg.ASK_FOR_AVAILABLE_DEVICES {
 		return
@@ -29,7 +30,38 @@ func (udpModule *UDPModule) ReplyDiscoverDevicesHandler(bit uint, target interfa
 		slog.Debugf("Failed to reply ASK_DEVICE request:%v", err)
 	}
 }
-func (udpModule *UDPModule) PrintDeviceAckedHandler(bit uint, target interface{}, _ terminal.Terminal, _ chan interface{}, wg *sync.WaitGroup) {
+func (udpModule *UDPModule) ReplyReceivedSearchDevicesAckHandler(bit uint, target interface{}, _ terminal.Terminal, informChan chan<- interface{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+	if bit != cfg.ACK_I_AM_THE_DEVICE {
+		return
+	}
+	targetTerminal := target.(related_resp.DeviceDiscovery)
+	targetTerminal.FoundAt = udpModule.targetInterface.RawInterface.Name
+	informChan <- targetTerminal.Terminal
+}
+
+// if we received device search request we call this handler.
+func (udpModule *UDPModule) ReplySearchDevicesHandler(bit uint, target interface{}, currentTerminal terminal.Terminal, informChan chan<- interface{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+	if bit != cfg.SEARCH_FOR_DEVICE {
+		return
+	}
+	targetTerminal := target.(related_resp.DeviceDiscovery)
+	// sleep for a while so server can switch to listen mode
+	time.Sleep(time.Millisecond * 2)
+	if targetTerminal.User.UserName != currentTerminal.User.UserName {
+		slog.Debugf("Not me!")
+		return
+	}
+	slog.Trace("Replying ACK_I_AM_THE_DEVICE...")
+	if err := udpModule.sendUDPPacket(net.ParseIP(targetTerminal.User.IP), GenerateIAmTheDeviceQueryJSON(currentTerminal)); err != nil {
+		slog.Debugf("Failed to reply ACK_I_AM_THE_DEVICE request:%v", err)
+		return
+	}
+	//targetTerminal.FoundAt = udpModule.targetInterface.RawInterface.Name
+	//informChan <- targetTerminal.Terminal
+}
+func (udpModule *UDPModule) PrintDeviceAckedHandler(bit uint, target interface{}, _ terminal.Terminal, _ chan<- interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	targetTerminal := target.(related_resp.DeviceDiscovery)
 	if bit != cfg.ACK_BEING_DISCOVERED {
@@ -37,7 +69,7 @@ func (udpModule *UDPModule) PrintDeviceAckedHandler(bit uint, target interface{}
 	}
 	fmt.Printf("Device found: User: %s, IP: %s, OS: %s, Arch: %s\n", targetTerminal.User.UserName, targetTerminal.User.IP, targetTerminal.Device.OS, targetTerminal.Device.Arch)
 }
-func (udpModule *UDPModule) GatherDeviceAckedHandler(bit uint, target interface{}, _ terminal.Terminal, msgChan chan interface{}, wg *sync.WaitGroup) {
+func (udpModule *UDPModule) GatherDeviceAckedHandler(bit uint, target interface{}, _ terminal.Terminal, msgChan chan<- interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if bit != cfg.ACK_BEING_DISCOVERED {
 		return
@@ -47,7 +79,7 @@ func (udpModule *UDPModule) GatherDeviceAckedHandler(bit uint, target interface{
 }
 
 // if we received send_file request and if we are free we'll call this
-func (udpModule *UDPModule) ReplyReadyToReceiveFileHandler(bit uint, target interface{}, currentTerminal terminal.Terminal, msgChan chan interface{}, wg *sync.WaitGroup) {
+func (udpModule *UDPModule) ReplyReadyToReceiveFileHandler(bit uint, target interface{}, currentTerminal terminal.Terminal, msgChan chan<- interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if bit != cfg.READY_TO_SEND_FILE {
 		return
@@ -66,10 +98,10 @@ func (udpModule *UDPModule) ReplyReadyToReceiveFileHandler(bit uint, target inte
 		SetTerminalState(cfg.STATUS_OK)
 		return
 	}
-	slog.Trace("Allow file sending")
+	slog.Trace("file receive!")
 	msgChan <- targetFileReq
 }
-func (udpModule *UDPModule) InformTCPHandler(bit uint, target interface{}, currentTerminal terminal.Terminal, msgChan chan interface{}, wg *sync.WaitGroup) {
+func (udpModule *UDPModule) InformTCPHandler(bit uint, target interface{}, currentTerminal terminal.Terminal, msgChan chan<- interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	if bit != cfg.READY_TO_RECV_FILE {
 		return
@@ -80,9 +112,9 @@ func (udpModule *UDPModule) InformTCPHandler(bit uint, target interface{}, curre
 		slog.Debugf("Busy now and do not accept other requests!")
 		msgChan <- struct{}{}
 		slog.Debugf("Refused request from %s since we are busy now", targetFileReq.User.UserName)
-		SetTerminalState(cfg.STATUS_OK)
 		return
 	}
-	SetTerminalState(cfg.STATUS_RECV_FILE)
+	slog.Trace("receive side acked ready_to_send_file")
+	SetTerminalState(cfg.STATUS_SEND_FILE)
 	msgChan <- targetFileReq
 }

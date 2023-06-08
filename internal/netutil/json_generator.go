@@ -55,6 +55,44 @@ func GenerateReplyDeviceQueryJSON(tarTerminal terminal.Terminal) string {
 	}
 	return string(data)
 }
+func GenerateAskForTargetDeviceQueryJSON(netInterface NetInterface, name string) string {
+	response := related_resp.DeviceDiscovery{
+		FixedHeader: related_resp.FixedHeader{
+			Type: cfg.SEARCH_FOR_DEVICE,
+			Flag: cfg.TRANSOWL_FLAG,
+			Time: time.Now().Unix(),
+		},
+		Terminal: terminal.Terminal{User: terminal.User{
+			// target username
+			UserName: name,
+			// This device's ip
+			IP: netInterface.CurrentIP.String(),
+		},
+		},
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		// This is not likely to happen
+		slog.Warnf("Cannot generate req json:%v", err)
+	}
+	return string(data)
+}
+func GenerateIAmTheDeviceQueryJSON(tarTerminal terminal.Terminal) string {
+	response := related_resp.DeviceDiscovery{
+		FixedHeader: related_resp.FixedHeader{
+			Type: cfg.ACK_I_AM_THE_DEVICE,
+			Flag: cfg.TRANSOWL_FLAG,
+			Time: time.Now().Unix(),
+		},
+		Terminal: tarTerminal,
+	}
+	data, err := json.Marshal(response)
+	if err != nil {
+		// This is not likely to happen
+		slog.Warnf("Cannot generate req json:%v", err)
+	}
+	return string(data)
+}
 func GenerateReadyToSendFileJSON(myTerminal terminal.Terminal, file os.FileInfo) string {
 	request := related_resp.FileTransfer{
 		FixedHeader: related_resp.FixedHeader{

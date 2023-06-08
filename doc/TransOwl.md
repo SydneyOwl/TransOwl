@@ -30,4 +30,5 @@ TransOwl [flags]
 * [TransOwl scandevices](TransOwl_scandevices.md)	 - Print all devices available in current net.
 * [TransOwl sendfile](TransOwl_sendfile.md)	 - send file to someone
 * [TransOwl waitrecv](TransOwl_waitrecv.md)	 - Wait for receiving file
+* [TransOwl waitscan](TransOwl_waitscan.md)	 - Wait for respond scan req
 

@@ -1,21 +1,19 @@
-## TransOwl sendfile
+## TransOwl waitscan
 
-send file to someone
+Wait for respond scan req
 
 ### Synopsis
 
-example: ./TransOwl sendfile --filepath owl.doc --sendto TransOwlUser-d83hf
+Listen for scan requests only
 
 ```
-TransOwl sendfile [flags]
+TransOwl waitscan [flags]
 ```
 
 ### Options
 
 ```
-      --filepath string   file to be sent
-  -h, --help              help for sendfile
-      --sendto string     Send to user
+  -h, --help   help for waitscan
 ```
 
 ### Options inherited from parent commands

@@ -9,6 +9,7 @@ import (
 	"github.com/sydneyowl/TransOwl/internal/terminal"
 	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
 	"net"
+	"time"
 )
 
 var (
@@ -28,7 +29,7 @@ var scanDevicesCmd = &cobra.Command{
 				IP:       v.CurrentIP.String(),
 				UserName: userName,
 			})
-			go ScanDevice(tTerminal, v, scanDeeper, true, endChan)
+			go ScanDevice(tTerminal, v, scanDeeper, endChan)
 		l:
 			for {
 				ans := <-endChan
@@ -53,7 +54,7 @@ var scanDevicesCmd = &cobra.Command{
 	},
 }
 
-func ScanDevice(t terminal.Terminal, v netutil.NetInterface, scanDeeper bool, toStd bool, endChan chan interface{}) {
+func ScanDevice(t terminal.Terminal, v netutil.NetInterface, scanDeeper bool, endChan chan interface{}) {
 	var deepbit uint = cfg.NETTYPE_SAMESEGMENT
 	if scanDeeper {
 		deepbit = cfg.NETTYPE_WHOLENET
@@ -66,10 +67,7 @@ func ScanDevice(t terminal.Terminal, v netutil.NetInterface, scanDeeper bool, to
 		return
 	}
 	handler := udpModule.PrintDeviceAckedHandler
-	if !toStd {
-		handler = udpModule.GatherDeviceAckedHandler
-	}
-	udpModule.StartUDPListeningWithExtraHandlers(t, cfg.MAX_DEVICE_DISCOVER_TIMEOUT, endChan, handler)
+	udpModule.StartUDPListeningWithExtraHandlers(t, cfg.MAX_DEVICE_DISCOVER_TIMEOUT*time.Second, endChan, handler)
 }
 
 func init() {

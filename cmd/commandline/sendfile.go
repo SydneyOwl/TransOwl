@@ -1,18 +1,17 @@
 package commandline
 
 import (
-	"github.com/sydneyowl/TransOwl/internal/cfg"
-	"github.com/sydneyowl/TransOwl/internal/netutil"
-	"github.com/sydneyowl/TransOwl/internal/terminal"
-	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
-	"github.com/sydneyowl/TransOwl/pkg/util/terminalutil"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/gookit/slog"
 	"github.com/spf13/cobra"
+	"github.com/sydneyowl/TransOwl/internal/cfg"
+	"github.com/sydneyowl/TransOwl/internal/netutil"
+	"github.com/sydneyowl/TransOwl/internal/terminal"
 )
 
 var sendUser string
@@ -33,116 +32,79 @@ var sendFile = &cobra.Command{
 		}
 		fileName := file.Name()
 		fileSize := file.Size()
-		slog.Debugf("file to be sent: %s, %s", fileName, humanize.Bytes(uint64(fileSize)))
+		// Deny file > 100MB
+		// Since we read directly from os.
+		if fileSize > 104857600 {
+			slog.Error("We currently don't support send file at that big!")
+			return
+		}
+		slog.Infof("file to be sent: %s, %s", fileName, humanize.Bytes(uint64(fileSize)))
 		// get available clients
-		availableReceiver := make([]terminal.Terminal, 5)
+		availableReceiver := terminal.Terminal{}
 		slog.Info("Searching...")
+		resRefer := make(chan interface{}, cfg.CACHED_UDP_READ_CHANNEL_MAX_BUFFER)
+		waitFinddev := sync.WaitGroup{}
 		for _, v := range processedInterfaces {
-			resRefer := make(chan interface{}, cfg.CACHED_UDP_READ_CHANNEL_MAX_BUFFER)
+			waitFinddev.Add(1)
 			slog.Trace("Scanning on " + v.RawInterface.Name)
 			// be careful when owl is beautiful!
-			go ScanDevice(netutil.GenerateCurrTerminal(terminal.User{
-				IP:       v.CurrentIP.String(),
-				UserName: userName,
-			}), v, scanDeeper, false, resRefer)
-		l:
-			for {
-				ans := <-resRefer
-				switch result := ans.(type) {
-				case terminal.Terminal:
-					result.FoundAt = v.RawInterface.Name
-					availableReceiver = append(availableReceiver, result)
-				case net.Error:
-					if result.Timeout() {
-						slog.Trace("Scan timedout")
-						break l
-					}
-					slog.Errorf("Err occurred: %v", result)
+			go func(v netutil.NetInterface) {
+				defer waitFinddev.Done()
+				FindDevice(sendUser, netutil.GenerateCurrTerminal(terminal.User{
+					IP:       v.CurrentIP.String(),
+					UserName: userName,
+				}), v, scanDeeper, resRefer)
+			}(v)
+		}
+		waitFinddev.Wait()
+	l:
+		for {
+			ans := <-resRefer
+			switch result := ans.(type) {
+			case terminal.Terminal:
+				availableReceiver = result
+				break l
+			case net.Error:
+				if result.Timeout() {
+					slog.Warnf("Scan timedout: No user named %s found. Try using --deepscan to scan deeper.", sendUser)
 					return
-				case error:
-					slog.Errorf("Scan suspended due to %v", result)
-					return
-				default:
-					slog.Tracef("Not handled: %v", result)
 				}
+				slog.Errorf("Err occurred: %v", result)
+				return
+			case error:
+				slog.Errorf("Scan suspended due to %v", result)
+				return
+			default:
+				slog.Tracef("Not handled: %v", result)
 			}
 		}
-		// removed duplicated receiver via username
-		availableReceiver = terminalutil.RemoveStringDuplicateUseMap(availableReceiver)
 		slog.Debugf("users: %s", availableReceiver)
-		match := false
-		var targetTerminal terminal.Terminal
-		for _, v := range availableReceiver {
-			if v.User.UserName == sendUser {
-				targetTerminal = v
-				match = true
-				break
-			}
+		slog.Noticef("User found at interface %s", availableReceiver.FoundAt)
+		targetInterface, _ := netutil.GetNetInterfacesByName(availableReceiver.FoundAt, processedInterfaces)
+		tml := netutil.GenerateCurrTerminal(terminal.User{
+			IP:       targetInterface.CurrentIP.String(),
+			UserName: userName,
+		})
+		//Now establish connection(p2p) with target.
+		udp, err := netutil.NewUDPModuleWithContext(*targetInterface, net.ParseIP(availableReceiver.User.IP))
+		err = udp.SendToUDP(netutil.GenerateReadyToSendFileJSON(tml, file))
+		if err != nil {
+			slog.Errorf("Cannot ask client: %v", err)
+			return
 		}
-		if !match {
-			slog.Errorf("User %s not found or did not response.", sendUser)
+		_, tp, err := udp.ReadFromUDPAndParseWithTimeout(time.Second * cfg.MAX_STANDBY_ACK_TIMEOUT)
+		if err != nil {
+			slog.Errorf("Err occurred: %v", err)
+			return
+		}
+		if tp != cfg.READY_TO_RECV_FILE {
+			slog.Errorf("Client sent a message but cant be understood")
 			return
 		}
 		// tell target that we are going send files!
-		slog.Debugf("User found at interface %s", targetTerminal.FoundAt)
-		// Start global listener
-		replyChan := make(chan related_resp.FileTransfer)
-		// Start listening for other requests, at all interfaces.
-		for _, v := range processedInterfaces {
-			go func(ver netutil.NetInterface) {
-				thisTerminal := netutil.GenerateCurrTerminal(terminal.User{
-					IP:       ver.CurrentIP.String(),
-					UserName: userName,
-				})
-				msgChan := make(chan interface{}, cfg.CACHED_UDP_READ_CHANNEL_MAX_BUFFER)
-				udp := netutil.NewUDPModule(ver)
-				go udp.StartUDPListeningWithExtraHandlers(thisTerminal, -time.Second, msgChan, udp.InformTCPHandler)
-				for {
-					res := <-msgChan
-					switch ps := res.(type) {
-					case struct{}:
-						continue
-					case related_resp.FileTransfer:
-						replyChan <- ps
-						slog.Trace("Allowdd to save file!")
-					case error:
-						slog.Errorf("Goroutine met an error: %v", res)
-						return
-					default:
-						slog.Trace("GoRoutine Recv: %v", res)
-					}
-				}
-			}(v)
-		}
-		face, err := netutil.GetNetInterfacesByName(targetTerminal.FoundAt, processedInterfaces)
-		if err != nil {
-			slog.Error("No interface found!")
-			return
-		}
-		thisTerminal := netutil.GenerateCurrTerminal(terminal.User{
-			IP:       face.CurrentIP.String(),
-			UserName: userName,
-		})
-		// Now we send READY_TO_SEND_FILE to client
-		udp := netutil.NewUDPModule(*face)
-		err = udp.SendP2PUDPPacket(targetTerminal.User.IP, netutil.GenerateReadyToSendFileJSON(thisTerminal, file))
-		if err != nil {
-			slog.Errorf("Failed to send with READY_TO_SEND_FILE: %v", err)
-			return
-		}
-	a:
-		for {
-			select {
-			case <-replyChan:
-				break a
-			case <-time.After(cfg.MAX_DEVICE_DISCOVER_TIMEOUT * time.Second):
-				slog.Warn("Timeout")
-				return
-			}
-		}
 		// we send file now!
 		// TODO: ADD SEND
-		slog.Debug("SENN")
+		slog.Info("Ready to send file!")
 	},
 }
 
@@ -153,4 +115,18 @@ func init() {
 	_ = sendFile.MarkFlagRequired("sendto")
 	// Not available right now
 	BaseCmd.AddCommand(sendFile)
+}
+func FindDevice(target string, t terminal.Terminal, v netutil.NetInterface, scanDeeper bool, endChan chan interface{}) {
+	var deepbit uint = cfg.NETTYPE_SAMESEGMENT
+	if scanDeeper {
+		deepbit = cfg.NETTYPE_WHOLENET
+	}
+	slog.Debugf("Sending ASK_FOR_DEVICE req to %s...", v.RawInterface.Name)
+	udpModule := netutil.NewUDPModule(v)
+	err := udpModule.SendSearchDevicesPacket(deepbit, target)
+	if err != nil {
+		slog.Fatalf("failed to send udp packet: %v", err)
+		return
+	}
+	udpModule.StartUDPListeningWithExtraHandlers(t, cfg.MAX_DEVICE_DISCOVER_TIMEOUT*time.Second, endChan, udpModule.ReplyReceivedSearchDevicesAckHandler)
 }

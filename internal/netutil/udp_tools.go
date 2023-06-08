@@ -2,12 +2,13 @@ package netutil
 
 import (
 	"encoding/json"
-	"github.com/sydneyowl/TransOwl/internal/cfg"
-	"github.com/sydneyowl/TransOwl/internal/terminal"
-	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/sydneyowl/TransOwl/internal/cfg"
+	"github.com/sydneyowl/TransOwl/internal/terminal"
+	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
 
 	"github.com/gookit/slog"
 )
@@ -26,6 +27,11 @@ type UDPModule struct {
 	sendingMutex   *sync.Mutex
 	listeningMutex *sync.Mutex
 	handlers       []ActionHandler
+}
+
+type UDPModuleWithContext struct {
+	targetIP *net.UDPAddr
+	conn     *net.UDPConn
 }
 
 func init() {
@@ -71,12 +77,56 @@ func NewUDPModule(targetInterface NetInterface) *UDPModule {
 	return instance[name]
 }
 
+// This is not concurrent-safe.
+func NewUDPModuleWithContext(currInterface NetInterface, targetIP net.IP) (*UDPModuleWithContext, error) {
+	localAddr := &net.UDPAddr{
+		IP:   currInterface.CurrentIP,
+		Port: cfg.UDP_PORT_INWARD,
+	}
+	conn, err := net.ListenUDP("udp", localAddr)
+	if err != nil {
+		return nil, err
+	}
+	targetAddr := &net.UDPAddr{
+		IP:   targetIP,
+		Port: cfg.UDP_PORT_INWARD,
+	}
+	return &UDPModuleWithContext{conn: conn, targetIP: targetAddr}, nil
+}
+
+// This is a blocked function!
+func (udpModule *UDPModuleWithContext) ReadFromUDPAndParseWithTimeout(timeout time.Duration) (interface{}, uint, error) {
+	buf := make([]byte, 4096)
+	if timeout.Seconds() > 0 {
+		err := udpModule.conn.SetDeadline(time.Now().Add(timeout))
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	udpBytes, _, err := udpModule.conn.ReadFromUDP(buf)
+	if err != nil {
+		return nil, 0, err
+	}
+	slog.Debug(string(buf))
+	parse, u, err := checkResponseAndParse(buf[:udpBytes])
+	if err != nil {
+		return nil, 0, err
+	}
+	return parse, u, nil
+}
+func (udpModule *UDPModuleWithContext) SendToUDP(msg string) error {
+	_, err := udpModule.conn.WriteToUDP([]byte(msg), udpModule.targetIP)
+	return err
+}
+func (udpModule *UDPModuleWithContext) ShutConn() {
+	_ = udpModule.conn.Close()
+}
 func (udpModule *UDPModule) StartUDPListeningWithDefaultHandlers(terminalCurr terminal.Terminal, timeout time.Duration, msgChan chan interface{}) {
-	udpModule.registerHandlers(udpModule.ReplyDiscoverDevicesHandler)
+	udpModule.registerHandlers(udpModule.ReplyDiscoverDevicesHandler, udpModule.ReplySearchDevicesHandler)
 	udpModule.StartUDPListeningWithHandlers(terminalCurr, timeout, msgChan)
 }
 func (udpModule *UDPModule) StartUDPListeningWithExtraHandlers(terminalCurr terminal.Terminal, timeout time.Duration, msgChan chan interface{}, actionHandler ...ActionHandler) {
-	udpModule.registerHandlers(udpModule.ReplyDiscoverDevicesHandler)
+	udpModule.registerHandlers(udpModule.ReplyDiscoverDevicesHandler, udpModule.ReplySearchDevicesHandler)
 	udpModule.registerHandlers(actionHandler...)
 	udpModule.StartUDPListeningWithHandlers(terminalCurr, timeout, msgChan)
 }
@@ -111,28 +161,26 @@ func (udpModule *UDPModule) StartUDPListeningWithHandlers(terminalCurr terminal.
 	}
 	for {
 		buf := make([]byte, 4096)
-		for {
-			//slog.Trace("Start reading from udp...")
-			udpBytes, _, err := conn.ReadFromUDP(buf)
-			if err != nil {
-				informChan <- err
-				return
-			}
-			parseResult, reqCode, err := checkResponseAndParse(buf[:udpBytes])
-			if err != nil {
-				slog.Debugf("Cannot parse : %v", err)
-				continue
-			}
-			wg := sync.WaitGroup{}
-			for _, v := range udpModule.handlers {
-				wg.Add(1)
-				// We don't need t wait 2ms now
-				go v(reqCode, parseResult, terminalCurr, informChan, &wg)
-			}
-			// Wait until all go routine in the same interface are done
-			wg.Wait()
-			slog.Trace("All go routines exited.")
+		//slog.Trace("Start reading from udp...")
+		udpBytes, _, err := conn.ReadFromUDP(buf)
+		if err != nil {
+			informChan <- err
+			return
 		}
+		parseResult, reqCode, err := checkResponseAndParse(buf[:udpBytes])
+		if err != nil {
+			slog.Debugf("Cannot parse : %v", err)
+			continue
+		}
+		wg := sync.WaitGroup{}
+		for _, v := range udpModule.handlers {
+			wg.Add(1)
+			// We don't need t wait 2ms now
+			go v(reqCode, parseResult, terminalCurr, informChan, &wg)
+		}
+		// Wait until all go routine in the same interface are done
+		wg.Wait()
+		slog.Trace("All go routines exited.")
 	}
 }
 
@@ -186,7 +234,16 @@ func (udpModule *UDPModule) SendDiscoverDevicesPacket(netType uint) error {
 		return udpModule.SendUDPBroadcastToWholeNet(GenerateQueryDeviceRequestJSON(udpModule.targetInterface))
 	}
 }
-
+func (udpModule *UDPModule) SendSearchDevicesPacket(netType uint, name string) error {
+	switch netType {
+	case cfg.NETTYPE_SAMESEGMENT:
+		return udpModule.SendUDPBroadcastWithinSameSegment(GenerateAskForTargetDeviceQueryJSON(udpModule.targetInterface, name))
+	case cfg.NETTYPE_WHOLENET:
+		return udpModule.SendUDPBroadcastToWholeNet(GenerateAskForTargetDeviceQueryJSON(udpModule.targetInterface, name))
+	default:
+		return udpModule.SendUDPBroadcastToWholeNet(GenerateAskForTargetDeviceQueryJSON(udpModule.targetInterface, name))
+	}
+}
 func checkResponseAndParse(buf []byte) (interface{}, uint, error) {
 	slog.Debugf("Received: %s", string(buf))
 	ter := related_resp.FixedHeader{}
@@ -197,10 +254,11 @@ func checkResponseAndParse(buf []byte) (interface{}, uint, error) {
 	}
 	if ter.Flag == cfg.TRANSOWL_FLAG {
 		switch ter.Type {
-		case cfg.ACK_BEING_DISCOVERED, cfg.ASK_FOR_AVAILABLE_DEVICES:
+		case cfg.ACK_BEING_DISCOVERED, cfg.ASK_FOR_AVAILABLE_DEVICES, cfg.SEARCH_FOR_DEVICE, cfg.ACK_I_AM_THE_DEVICE:
 			ter := related_resp.DeviceDiscovery{}
 			err = json.Unmarshal(buf, &ter)
 			if err != nil {
+				slog.Warnf("Failed to parsE: %v", err)
 				return nil, ter.Type, err
 			}
 			return ter, ter.Type, nil
@@ -208,6 +266,7 @@ func checkResponseAndParse(buf []byte) (interface{}, uint, error) {
 			fileInfo := related_resp.FileTransfer{}
 			err = json.Unmarshal(buf, &fileInfo)
 			if err != nil {
+				slog.Warnf("Failed to parsE: %v", err)
 				return nil, ter.Type, err
 			}
 			return fileInfo, ter.Type, nil

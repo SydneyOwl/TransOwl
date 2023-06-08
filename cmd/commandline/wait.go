@@ -7,6 +7,7 @@ import (
 	"github.com/sydneyowl/TransOwl/internal/netutil"
 	"github.com/sydneyowl/TransOwl/internal/terminal"
 	"github.com/sydneyowl/TransOwl/internal/terminal/related_resp"
+	"sync"
 	"time"
 )
 
@@ -21,8 +22,6 @@ var waitRecvCmd = &cobra.Command{
 			slog.Errorf("Specify filepath you want to save file at using --savepath")
 			return
 		}
-		//var targetInterface netutil.NetInterface
-		//var interfaceMutex sync.Mutex
 		recvFileTransfer := make(chan related_resp.FileTransfer)
 		for _, v := range processedInterfaces {
 			go func(ver netutil.NetInterface) {
@@ -54,8 +53,8 @@ var waitRecvCmd = &cobra.Command{
 			select {
 			case <-recvFileTransfer:
 				break l
-			case <-time.After(cfg.MAX_DEVICE_DISCOVER_TIMEOUT * time.Second):
-				slog.Warn("Timeout")
+			case <-time.After(cfg.MAX_STANDBY_RECEIVE_TIMEOUT * time.Second):
+				slog.Warn("No request received within 300s.")
 				return
 			}
 		}
@@ -65,9 +64,44 @@ var waitRecvCmd = &cobra.Command{
 	},
 }
 
+var waitScanCmd = &cobra.Command{
+	Use:   "waitscan",
+	Short: "Wait for respond scan req",
+	Long:  `Listen for scan-only`,
+	Run: func(cmd *cobra.Command, args []string) {
+		wg := sync.WaitGroup{}
+		for _, v := range processedInterfaces {
+			wg.Add(1)
+			go func(ver netutil.NetInterface) {
+				terminal := netutil.GenerateCurrTerminal(terminal.User{
+					IP:       ver.CurrentIP.String(),
+					UserName: userName,
+				})
+				slog.Infof("Interface %s start listening...", ver.RawInterface.Name)
+				msgChan := make(chan interface{}, cfg.CACHED_UDP_READ_CHANNEL_MAX_BUFFER)
+				udp := netutil.NewUDPModule(ver)
+				defer wg.Done()
+				go udp.StartUDPListeningWithDefaultHandlers(terminal, -time.Second, msgChan)
+				for {
+					ans := <-msgChan
+					switch res := ans.(type) {
+					case error:
+						slog.Errorf("Error occurred: %v", ans)
+						return
+					default:
+						slog.Debugf("Unhandled kind: %v", res)
+					}
+				}
+			}(v)
+		}
+		wg.Wait()
+		slog.Errorf("All go routines exited!!")
+	},
+}
+
 func init() {
 	waitRecvCmd.Flags().StringVar(&savePath, "savepath", "", "file will be saved at path you specified.")
 	_ = waitRecvCmd.MarkFlagRequired("savepath")
-	// Not available right now!
+	BaseCmd.AddCommand(waitScanCmd)
 	BaseCmd.AddCommand(waitRecvCmd)
 }
