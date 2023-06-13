@@ -93,12 +93,13 @@ func GenerateIAmTheDeviceQueryJSON(tarTerminal terminal.Terminal) string {
 	}
 	return string(data)
 }
-func GenerateReadyToSendFileJSON(myTerminal terminal.Terminal, file os.FileInfo) string {
+func GenerateReadyToSendFileJSON(myTerminal terminal.Terminal, pswd string, file os.FileInfo) string {
 	request := related_resp.FileTransfer{
 		FixedHeader: related_resp.FixedHeader{
-			Type: cfg.READY_TO_SEND_FILE,
-			Flag: cfg.TRANSOWL_FLAG,
-			Time: time.Now().Unix(),
+			Type:      cfg.READY_TO_SEND_FILE,
+			Flag:      cfg.TRANSOWL_FLAG,
+			Time:      time.Now().Unix(),
+			TransPswd: pswd,
 		},
 		Terminal: myTerminal,
 		File: terminal.File{

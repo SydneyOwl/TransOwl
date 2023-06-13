@@ -1,6 +1,11 @@
 package commandline
 
 import (
+	"errors"
+	"fmt"
+	"github.com/google/uuid"
+	"github.com/sydneyowl/TransOwl/pkg/util/terminalutil"
+	"io"
 	"net"
 	"os"
 	"sync"
@@ -78,6 +83,7 @@ var sendFile = &cobra.Command{
 				slog.Tracef("Not handled: %v", result)
 			}
 		}
+		netutil.SetTerminalState(cfg.STATUS_SEND_FILE)
 		slog.Debugf("users: %s", availableReceiver)
 		slog.Noticef("User found at interface %s", availableReceiver.FoundAt)
 		targetInterface, _ := netutil.GetNetInterfacesByName(availableReceiver.FoundAt, processedInterfaces)
@@ -86,8 +92,15 @@ var sendFile = &cobra.Command{
 			UserName: userName,
 		})
 		//Now establish connection(p2p) with target.
+		// password for transfer
+		rancode, err := uuid.NewUUID()
+		if err != nil {
+			slog.Panicf("Cannot generate password: %v", err)
+		}
+		uu := rancode.String()[0:5]
 		udp, err := netutil.NewUDPModuleWithContext(*targetInterface, net.ParseIP(availableReceiver.User.IP))
-		err = udp.SendToUDP(netutil.GenerateReadyToSendFileJSON(tml, file))
+		err = udp.SendToUDP(netutil.GenerateReadyToSendFileJSON(tml, uu, file))
+		defer udp.ShutConn()
 		if err != nil {
 			slog.Errorf("Cannot ask client: %v", err)
 			return
@@ -105,6 +118,82 @@ var sendFile = &cobra.Command{
 		// we send file now!
 		// TODO: ADD SEND
 		slog.Info("Ready to send file!")
+		time.Sleep(time.Millisecond)
+		tcp, err := netutil.NewSenderTCPModule(net.ParseIP(availableReceiver.User.IP), *targetInterface)
+		defer tcp.ShutConn()
+		if err != nil {
+			slog.Errorf("Cannot create sender tcp module: %v", err)
+			return
+		}
+		err = tcp.SendData([]byte(uu))
+		if err != nil {
+			slog.Errorf("Cannot send data: %v", err)
+			return
+		}
+		out, err := tcp.BlockTillSenderRecv()
+		if err != nil {
+			slog.Errorf("Error occurred: %v", err)
+			return
+		}
+		if string(out) != cfg.ACK_PACKET_RECV {
+			slog.Errorf("Unverified receiver!")
+			return
+		}
+		slog.Debug("Verified receiver!")
+		//small file
+		if fileSize <= 104857600 {
+			f, err := os.Open(filePath)
+			if err != nil {
+				slog.Errorf("Cannnot read file: %v", err)
+				return
+			}
+			//var sendSize int64
+			bar := terminalutil.GenerateBarConfig(fileSize, "Sending File")
+			for {
+				buf := make([]byte, cfg.FILE_SLICE_SIZE)
+				length, err := f.Read(buf)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						// May be tcp sticky!
+						err = tcp.SendData([]byte(cfg.ACK_SEND_DONE))
+						if err != nil {
+							slog.Debug("Can not done")
+						}
+						fmt.Println()
+						slog.Info("File sent")
+						_, err = tcp.BlockTillSenderRecv()
+						if err != nil {
+							slog.Trace(err)
+							slog.Warn("Transfer done but receiver does not reply")
+							return
+						}
+						slog.Info("Receiver side told us the file is transferred successfully")
+						return
+					}
+					_ = bar.Exit()
+					slog.Errorf("failed to read file: %v", err)
+					return
+				}
+				err = tcp.SendData(buf[:length])
+				if err != nil {
+					_ = bar.Exit()
+					slog.Errorf("Failed to send data: %v", err)
+					return
+				}
+				rev, err := tcp.BlockTillSenderRecv()
+				if err != nil {
+					_ = bar.Exit()
+					slog.Errorf("Error occurred: %v", err)
+					return
+				}
+				if string(rev) != cfg.ACK_PACKET_RECV {
+					_ = bar.Exit()
+					slog.Error("Receiver error. Check receiver side and try again.")
+					return
+				}
+				_, _ = bar.Write(buf[:length])
+			}
+		}
 	},
 }
 

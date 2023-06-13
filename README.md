@@ -1,46 +1,49 @@
 # README
 ![](https://img.shields.io/github/v/tag/sydneyowl/TransOwl?label=version&style=flat-square) [![Go Report Card](https://goreportcard.com/badge/github.com/sydneyowl/TransOwl)](https://goreportcard.com/report/github.com//sydneyowl/TransOwl)
 
-TransOwl is currently a simple cross-platform local network device discovery tool, and may develop into a local network file transfer tool in the future.
+TransOwl is currently a simple cross-platform local network device discovery tool, and is also a local network file transfer tool.
 
 TODOs:
 
-- [ ] Add basic file transfer function via tcp
+- [x] Add basic file transfer function via tcp
 - [ ] Add support of large file(>=100M) transfer
 - [ ] [lz4](https://github.com/lz4/lz4) support
 - [ ] Password protection
 
 ## Usage
 
-[See here](./doc/TransOwl.md)
+For detailed usage, plz [See here](./doc/TransOwl.md)
 
 
-### Waitrecv
-
-**We don't support file sending so far so, you can only use `waitscan` and `scandevices`**
+### Waitscan&Scandevices
 
 `./TransOwl waitscan`
 
-![img_1.png](md_assets/img_1.png)
+`WaitScan` acks request from `ScanDevices`
 
-(use -u/--user to specify a username,--savepath is for future file transfer and is not available currently.)
-
-### Scandevices
+![img.png](md_assets/waitscan.png)
 
 `./TransOwl scandevices`
 
-![img.png](md_assets/img.png)
+`ScanDevices` scans devices in the same net segment.
 
-`waitrecv` should be ran with `sendfile` together but, since they're not fully featured, you can only use `scandevices` for scanning available devices. 
+![img.png](md_assets/dev.png)
 
-![](./md_assets/scan.svg)
+![](./md_assets/scan.png)
 
-### SendFile(todo)
+### WaitRecv&SendFile
+
+![](md_assets/sendfileandwaitrecv.gif)
+
+gif above indicates the usage of transowl.
+
 ![](./md_assets/filerecv.svg)
 
-TIPS: use `--verbose` or `--vverbose` to see more.
+TIPS: use `--verbose` or `--vverbose` to see more logs.
 
 ## CHANGELOG
+
+v0.1.0: New function: File transfer(<100m). tested on windows 10 and ubuntu 18.04lts
 
 v0.0.2: fix potential deadlock and added `waitscan`. file sending is still in process
 

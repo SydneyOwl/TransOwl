@@ -6,9 +6,10 @@ import (
 )
 
 type FixedHeader struct {
-	Type uint   `json:"type"`
-	Flag string `json:"flag"`
-	Time int64  `json:"time"`
+	Type      uint   `json:"type"`
+	Flag      string `json:"flag"`
+	Time      int64  `json:"time"`
+	TransPswd string `json:"transPswd"`
 }
 type DeviceDiscovery struct {
 	FixedHeader
