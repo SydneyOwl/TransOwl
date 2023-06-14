@@ -16,6 +16,7 @@ var (
 	userName            string
 	processedInterfaces []netutil.NetInterface
 	logToFile           = ""
+	scanDeeper          = false
 )
 
 var BaseCmd = &cobra.Command{
@@ -57,8 +58,7 @@ var BaseCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			slog.Infof("No args found!")
-			_ = cmd.Help()
+			slog.Infof("No args found. Start with gui by default.")
 		}
 	},
 }

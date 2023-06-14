@@ -10,6 +10,12 @@ create markdown at location specified
 TransOwl genmarkdown [flags]
 ```
 
+### Examples
+
+```
+./TransOwl genmarkdown --mdpath ./doc
+```
+
 ### Options
 
 ```

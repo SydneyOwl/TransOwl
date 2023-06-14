@@ -12,14 +12,11 @@ import (
 	"time"
 )
 
-var (
-	scanDeeper = false
-)
-
 var scanDevicesCmd = &cobra.Command{
-	Use:   "scandevices",
-	Short: "Print all devices available in current net.",
-	Long:  `Only devices responding TransOwl UDP packet are accepted.`,
+	Use:     "scandevices",
+	Short:   `Print all devices available in current net.`,
+	Long:    `Only devices responding TransOwl UDP packet are accepted.`,
+	Example: `./TransOwl scandevices`,
 	Run: func(cmd *cobra.Command, args []string) {
 		for _, v := range processedInterfaces {
 			endChan := make(chan interface{}, cfg.CACHED_UDP_READ_CHANNEL_MAX_BUFFER)

@@ -1,13 +1,19 @@
 ## TransOwl waitscan
 
-Wait for respond scan req
+Wait for being scanned.
 
 ### Synopsis
 
-Listen for scan requests only
+Listen for scan requests only.
 
 ```
 TransOwl waitscan [flags]
+```
+
+### Examples
+
+```
+./TransOwl waitscan
 ```
 
 ### Options

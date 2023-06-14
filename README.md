@@ -10,32 +10,41 @@ TODOs:
 - [ ] [lz4](https://github.com/lz4/lz4) support
 - [ ] Password protection
 
-## Usage
+## TransOwl Usage
 
-For detailed usage, plz [See here](./doc/TransOwl.md)
+For detailed usage, plz [See here](./doc/TransOwl.md) or run `./TransOwl --help`
 
+### Netls
+
+#### Usage
+
+![image-20230614124539201](./md_assets/netls.png)
+
+this displays all interfaces that could be used by transowl.
 
 ### Waitscan&Scandevices
 
-`./TransOwl waitscan`
+#### Usage
 
-`WaitScan` acks request from `ScanDevices`
+1. run `./TransOwl waitscan` on device you want to be scanned. This acks request from `ScanDevices`. You may run this before sending files to see if devices can be found by host.
 
-![img.png](md_assets/waitscan.png)
+![img.png](./md_assets/waitscan.png)
 
-`./TransOwl scandevices`
+2. run `./TransOwl scandevices` on the host. This scans devices in the same net segment by default. You may alse use `--deepscan` to scan deeper.
 
-`ScanDevices` scans devices in the same net segment.
+![img.png](./md_assets/dev.png)
 
-![img.png](md_assets/dev.png)
+#### Diagram
 
-![](./md_assets/scan.png)
+![](./md_assets/scan.svg)
 
 ### WaitRecv&SendFile
 
+#### Usage
+
 ![](md_assets/sendfileandwaitrecv.gif)
 
-gif above indicates the usage of transowl.
+#### Diagram
 
 ![](./md_assets/filerecv.svg)
 

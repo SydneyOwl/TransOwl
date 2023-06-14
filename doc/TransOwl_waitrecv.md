@@ -1,13 +1,19 @@
 ## TransOwl waitrecv
 
-Wait for receiving file
+Wait for receiving file from host
 
 ### Synopsis
 
-Listening for ASK_FOR_AVAILABLE_DEVICES
+This exits after300seconds
 
 ```
 TransOwl waitrecv [flags]
+```
+
+### Examples
+
+```
+./TransOwl waitrecv -u TransOwl --savepath /tmp/transowl
 ```
 
 ### Options

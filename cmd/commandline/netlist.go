@@ -8,9 +8,10 @@ import (
 )
 
 var lsNetCmd = &cobra.Command{
-	Use:   "netls",
-	Short: "List net available",
-	Long:  `List net which is "UP" and "BROADCAST" but not "LOOPBACK"`,
+	Use:     "netls",
+	Short:   "List net available",
+	Long:    `List net which is "UP" and "BROADCAST" but not "LOOPBACK"`,
+	Example: `./TransOwl netls`,
 	Run: func(cmd *cobra.Command, args []string) {
 		slog.Debug("Getting interfaces")
 		interfaces, err := netutil.GetBroadcastInterfaces()

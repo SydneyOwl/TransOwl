@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -19,9 +20,10 @@ import (
 var savePath string
 
 var waitRecvCmd = &cobra.Command{
-	Use:   "waitrecv",
-	Short: "Wait for receiving file",
-	Long:  `Listening for ASK_FOR_AVAILABLE_DEVICES`,
+	Use:     "waitrecv",
+	Short:   "Wait for receiving file from host",
+	Long:    "This exits after" + strconv.Itoa(cfg.MAX_STANDBY_RECEIVE_TIMEOUT) + "seconds",
+	Example: `./TransOwl waitrecv -u TransOwl --savepath /tmp/transowl`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if savePath == "" {
 			slog.Errorf("Specify filepath you want to save file at using --savepath")
@@ -171,9 +173,10 @@ var waitRecvCmd = &cobra.Command{
 }
 
 var waitScanCmd = &cobra.Command{
-	Use:   "waitscan",
-	Short: "Wait for respond scan req",
-	Long:  `Listen for scan-only`,
+	Use:     "waitscan",
+	Short:   "Wait for being scanned.",
+	Long:    `Listen for scan requests only.`,
+	Example: `./TransOwl waitscan`,
 	Run: func(cmd *cobra.Command, args []string) {
 		wg := sync.WaitGroup{}
 		for _, v := range processedInterfaces {

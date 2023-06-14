@@ -2,12 +2,14 @@
 
 send file to someone
 
-### Synopsis
-
-example: ./TransOwl sendfile --filepath owl.doc --sendto TransOwlUser-d83hf
-
 ```
 TransOwl sendfile [flags]
+```
+
+### Examples
+
+```
+example: ./TransOwl sendfile --filepath owl.doc --sendto TransOwlUser
 ```
 
 ### Options

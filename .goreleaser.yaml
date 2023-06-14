@@ -21,7 +21,17 @@ builds:
       - "7"
     main: ./TransOwl.go
     binary: TransOwl
-
+archives:
+  - replacements:
+      darwin: Darwin
+      linux: Linux
+      windows: Windows
+      386: i386
+      amd64: x86_64
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
 checksum:
   name_template: 'checksums.txt'
 snapshot:
@@ -32,6 +42,9 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
+      - 'README'
+      - 'Merge pull request'
+      - 'Merge branch'
 release:
   github:
     owner: SydneyOwl

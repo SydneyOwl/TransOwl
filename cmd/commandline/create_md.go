@@ -10,9 +10,10 @@ import (
 
 var filepos string
 var createMarkdown = &cobra.Command{
-	Use:   "genmarkdown",
-	Short: "Generate Instruction",
-	Long:  `create markdown at location specified`,
+	Use:     "genmarkdown",
+	Short:   "Generate Instruction",
+	Long:    `create markdown at location specified`,
+	Example: `./TransOwl genmarkdown --mdpath ./doc`,
 	Run: func(cmd *cobra.Command, args []string) {
 		pwd, err := os.Getwd()
 		if err != nil {

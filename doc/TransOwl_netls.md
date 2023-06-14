@@ -10,6 +10,12 @@ List net which is "UP" and "BROADCAST" but not "LOOPBACK"
 TransOwl netls [flags]
 ```
 
+### Examples
+
+```
+./TransOwl netls
+```
+
 ### Options
 
 ```

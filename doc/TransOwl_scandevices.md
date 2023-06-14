@@ -10,6 +10,12 @@ Only devices responding TransOwl UDP packet are accepted.
 TransOwl scandevices [flags]
 ```
 
+### Examples
+
+```
+./TransOwl scandevices
+```
+
 ### Options
 
 ```

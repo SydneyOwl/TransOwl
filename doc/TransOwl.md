@@ -24,11 +24,10 @@ TransOwl [flags]
 
 ### SEE ALSO
 
-* [TransOwl completion](TransOwl_completion.md)	 - Generate the autocompletion script for the specified shell
 * [TransOwl genmarkdown](TransOwl_genmarkdown.md)	 - Generate Instruction
 * [TransOwl netls](TransOwl_netls.md)	 - List net available
 * [TransOwl scandevices](TransOwl_scandevices.md)	 - Print all devices available in current net.
 * [TransOwl sendfile](TransOwl_sendfile.md)	 - send file to someone
-* [TransOwl waitrecv](TransOwl_waitrecv.md)	 - Wait for receiving file
-* [TransOwl waitscan](TransOwl_waitscan.md)	 - Wait for respond scan req
+* [TransOwl waitrecv](TransOwl_waitrecv.md)	 - Wait for receiving file from host
+* [TransOwl waitscan](TransOwl_waitscan.md)	 - Wait for being scanned.
 

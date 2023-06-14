@@ -22,9 +22,9 @@ import (
 var sendUser string
 var filePath string
 var sendFile = &cobra.Command{
-	Use:   "sendfile",
-	Short: "send file to someone",
-	Long:  `example: ./TransOwl sendfile --filepath owl.doc --sendto TransOwlUser-d83hf`,
+	Use:     "sendfile",
+	Short:   "send file to someone",
+	Example: `example: ./TransOwl sendfile --filepath owl.doc --sendto TransOwlUser`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if sendUser == "" || filePath == "" {
 			slog.Error("specify receiver via --sendto and file ready to be sent via --filepath")
